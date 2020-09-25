@@ -1,24 +1,25 @@
 import heapq
 import random
 import matplotlib.pyplot as plt
-
-
+import numpy as np
+import sys
 # Parameters
 class Params:
-    def __init__(self, lambd, mu, k):
+    def __init__(self, lambd, mu, k,total_q):
         self.lambd = lambd  # interarrival rate
         self.mu = mu  # service rate
         self.k = k
+        self.total_q = total_q #number of queue
     # Note lambd and mu are not mean value, they are rates i.e. (1/mean)
 
 # Write more functions if required
-
+ 
 
 # States and statistical counters
 class States:
     def __init__(self):
         # States
-        self.queue = []
+        self.queue = [] #here i didn't uese this default queue. I used server's indivigual queue_list for this purpose 
         # Declare other states variables that might be needed
 
         # Statistics
@@ -26,10 +27,52 @@ class States:
         self.avgQdelay = 0.0
         self.avgQlength = 0.0
         self.served = 0
+        #________________________MIYAD's Code_________________________________
+        self.is_server_busy = []
+        self.total_delay = 0
+        self.area_qt = 0
+        self.area_bt = 0
+        self.last_event_time = 0
+        #________________________Above_mycCoe_________________________________
+    def config_state(self, params):
+        for i in range(params.k):
+            self.queue.append([])
+        for i in range(params.total_q):
+            self.is_server_busy.append(False)
 
     def update(self, sim, event):
-        # Complete this function
-        None
+        if event.eventType == 'ARRIVAL':
+            is_getting_service = False
+            for i in range(sim.params.k):
+                if not sim.states.is_server_busy[i]:
+                    sim.states.is_server_busy[i] = True
+                    is_getting_service = True
+                    break
+            if not is_getting_service:
+                min_len = 10**18 #infinity 10^18 initally
+                index_of_shortes_queue = -1
+                for i in range(sim.params.total_q):
+                    if min_len > len(sim.states.queue[i]):
+                        min_len = len(sim.states.queue[i])
+                        index_of_shortes_queue = i
+                    sim.states.queue[index_of_shortes_queue].append(event.eventTime)
+
+        elif event.eventType == 'DEPART':
+            busy_server_set = []
+            for i in range(sim.params.k):
+                if sim.states.is_server_busy[i]:
+                    busy_server_set.append(i)
+            #as depart happening busy_server_set is definitly not empty
+            depart_at_server = int(np.random.uniform(0,len(busy_server_set)-0.1,1)[0])
+            queq_no = min(sim.params.total_q-1,busy_server_set[depart_at_server])
+            arival_last_person = -1
+            if len(self.queue[queq_no]) > 0:
+                arrival_last_person = self.queue[queq_no].pop(0)
+            else:
+                self.is_server_busy[busy_server_set[depart_at_server]] =  False
+            #arival_time_of_departing_cust = self.queue
+
+            
 
     def finish(self, sim):
         # Complete this function
@@ -50,10 +93,10 @@ class States:
 
 
 class Event:
-    def __init__(self, sim):
-        self.eventType = None
+    def __init__(self, sim, eventType, eventTime):
+        self.eventType = eventType
         self.sim = sim
-        self.eventTime = None
+        self.eventTime = eventTime
 
     def process(self, sim):
         raise Exception('Unimplemented process method for the event!')
@@ -70,7 +113,11 @@ class StartEvent(Event):
 
     def process(self, sim):
         # Complete this function
-        None
+        first_arrival_time = np.random.exponential(1/sim.params.lambd,1)[0] #after this time nex arrive 
+        first_depart_time = first_arrival_time + np.random.exponential(1/sim.params.mu,1)[0]
+        sim.scheduleEvent(ArrivalEvent(sim,first_arrival_time))
+        sim.scheduleEvent(DepartureEvent(sim,first_depart_time))
+        sim.scheduleEvent(ExitEvent(sim.max_sim_time,'EXIT'))
 
 
 class ExitEvent(Event):
@@ -86,26 +133,32 @@ class ExitEvent(Event):
 
 class ArrivalEvent(Event):
     # Write __init__ function
+    def __init__(self, sim, eventTime):
+        Event.__init__(self, sim, 'ARRIVAL', eventTime)
     def process(self, sim):
-        # Complete this function
-        None
-
+        next_arrial_time = self.eventTime + np.random.exponential(1/sim.params.lambd,1)[0]
+        next_depart_time = next_arrial_time + np.random.exponential(1/sim.params.mu,1)[0]
+        sim.scheduleEvent(ArrivalEvent(sim,next_arrial_time))
+        sim.scheduleEvent(DepartureEvent(sim,next_depart_time))
 
 class DepartureEvent(Event):
     # Write __init__ function
+    def __init__(self,sim,eventTime):
+        Event.__init__(self,sim,'DEPART',eventTime)
     def process(self, sim):
-        # Complete this function
         None
 
 
+
 class Simulator:
-    def __init__(self, seed):
+    def __init__(self, seed,max_sim_time):
         self.eventQ = []
         self.simclock = 0
         self.seed = seed
         self.params = None
         self.states = None
-
+        #__________________________
+        self.max_sim_time = max_sim_time
     def initialize(self):
         self.simclock = 0
         self.scheduleEvent(StartEvent(0, self))
@@ -113,6 +166,7 @@ class Simulator:
     def configure(self, params, states):
         self.params = params
         self.states = states
+        self.states.config_state(params)
 
     def now(self):
         return self.simclock
@@ -126,15 +180,17 @@ class Simulator:
 
         while len(self.eventQ) > 0:
             time, event = heapq.heappop(self.eventQ)
-
             if event.eventType == 'EXIT':
+                print("Simulation ended with ExitEvent at time ",time)
                 break
 
             if self.states != None:
                 self.states.update(self, event)
 
             print(event.eventTime, 'Event', event)
-            self.simclock = event.eventTime
+            self.states.last_event_time = self.simclock
+            #self.simclock = event.eventTime
+            self.simclock = time # i didn't use eventTime in event Because each event is pushed with associated time in heap
             event.process(self)
 
         self.states.finish(self)
@@ -146,15 +202,15 @@ class Simulator:
         return self.states.getResults(self)
 
 
-def experiment1():
+def experiment1(max_sim_time):
     seed = 101
-    sim = Simulator(seed)
-    sim.configure(Params(5.0 / 60, 8.0 / 60, 1), States())
+    sim = Simulator(seed,max_sim_time)
+    sim.configure(Params(5.0 / 60, 8.0 / 60, 1, 1), States())
     sim.run()
     sim.printResults()
 
 
-def experiment2():
+def experiment2(max_sim_time):
     seed = 110
     mu = 1000.0 / 60
     ratios = [u / 10.0 for u in range(1, 11)]
@@ -164,8 +220,8 @@ def experiment2():
     util = []
 
     for ro in ratios:
-        sim = Simulator(seed)
-        sim.configure(Params(mu * ro, mu, 1), States())
+        sim = Simulator(seed,max_sim_time)
+        sim.configure(Params(mu * ro, mu, 1,1), States())
         sim.run()
 
         length, delay, utl = sim.getResults()
@@ -200,9 +256,10 @@ def experiment3():
 
 
 def main():
-    experiment1()
-    experiment2()
-    experiment3()
+    max_sim_time = int(sys.argv[1])
+    experiment1(max_sim_time)
+    #experiment2(max_sim_time)
+    #experiment3()
 
 
 if __name__ == "__main__":
