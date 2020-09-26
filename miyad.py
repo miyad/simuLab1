@@ -37,9 +37,9 @@ class States:
         self.total_customer = 0
         #________________________Above_mycCoe_________________________________
     def config_state(self, params):
-        for i in range(params.k):
-            self.queue.append([])
         for i in range(params.total_q):
+            self.queue.append([])
+        for i in range(params.k):
             self.is_server_busy.append(False)
     def is_all_server_idle(self):
         is_idle = True
@@ -82,13 +82,13 @@ class States:
         self.avgQlength = self.area_qt/sim.max_sim_time
         self.avgQdelay = self.total_delay/self.served
         self.util = self.area_bt / sim.max_sim_time
-        print("areaqt = ",self.area_qt)
+        """print("areaqt = ",self.area_qt)
         print("total cust = ",self.total_customer, " served= ",self.served)
         print("average Q len = ",self.area_qt/sim.max_sim_time)
         print("my avg_delay = ",self.area_qt/self.total_customer)
         print("actual avg delay = ",self.total_delay/self.served)
         print("utility = ",self.area_bt/sim.max_sim_time)
-        None
+        None"""
 
     def printResults(self, sim):
         # DO NOT CHANGE THESE LINES
@@ -220,7 +220,6 @@ class Simulator:
         while len(self.eventQ) > 0:
             time, event = heapq.heappop(self.eventQ)
             if event.eventType == 'EXIT':
-                print("Simulation ended with ExitEvent at time ",time)
                 break
             
             self.states.last_event_time = self.simclock
@@ -289,7 +288,42 @@ def experiment2(max_sim_time):
     plt.show()
 
 
-def experiment3():
+def experiment3(max_sim_time):
+    seed = 110
+    lambd, mu = 5.0/60, 8.0 / 60
+    k_set = [u for u in range(1, 11)]
+
+    avglength = []
+    avgdelay = []
+    util = []
+
+    for k in k_set:
+        sim = Simulator(seed,max_sim_time)
+        sim.configure(Params(lambd, mu, k,1), States())
+        sim.run()
+
+        length, delay, utl = sim.getResults()
+        avglength.append(length/k)
+        avgdelay.append(delay)
+        util.append(utl/k)
+    print(util)
+
+    plt.figure(1)
+    plt.subplot(311)
+    plt.plot(k_set, avglength)
+    plt.xlabel('Number of Server (k)')
+    plt.ylabel('Avg Q length')
+
+    plt.subplot(312)
+    plt.plot(k_set, avgdelay)
+    plt.xlabel('Number of Server (k)')
+    plt.ylabel('Avg Q delay (sec)')
+
+    plt.subplot(313)
+    plt.plot(k_set, util)
+    plt.xlabel('Number of Server (k)')
+    plt.ylabel('Util')
+    plt.show()
     # Similar to experiment2 but for different values of k; 1, 2, 3, 4
     # Generate the same plots
     # Fix lambd = (5.0/60), mu = (8.0/60) and change value of k
@@ -299,8 +333,8 @@ def experiment3():
 def main():
     max_sim_time = int(sys.argv[1])
     experiment1(max_sim_time)
-    #experiment2(max_sim_time)
-    #experiment3()
+    experiment2(max_sim_time)
+    experiment3(max_sim_time)
 
 
 if __name__ == "__main__":

@@ -337,7 +337,7 @@ def experiment3():
         sim.run()
 
         length, delay, utl = sim.getResults()
-        avglength.append(length)
+        avglength.append(length/k)
         avgdelay.append(delay)
         util.append(utl/k)
 
