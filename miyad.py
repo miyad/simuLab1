@@ -327,14 +327,51 @@ def experiment3(max_sim_time):
     # Similar to experiment2 but for different values of k; 1, 2, 3, 4
     # Generate the same plots
     # Fix lambd = (5.0/60), mu = (8.0/60) and change value of k
-    None
 
+def experiment4(max_sim_time):
+    seed = 110
+    lambd, mu = 5.0/60, 8.0 / 60
+    k_set = [u for u in range(1, 11)]
+
+    avglength = []
+    avgdelay = []
+    util = []
+
+    for k in k_set:
+        sim = Simulator(seed,max_sim_time)
+        sim.configure(Params(lambd, mu, k,k), States())
+        sim.run()
+
+        length, delay, utl = sim.getResults()
+        avglength.append(length/k)
+        avgdelay.append(delay)
+        util.append(utl/k)
+    print(util)
+
+    plt.figure(1)
+    plt.subplot(311)
+    plt.plot(k_set, avglength)
+    plt.xlabel('Number of Server (k) and Q(k)')
+    plt.ylabel('Avg Q length')
+
+    plt.subplot(312)
+    plt.plot(k_set, avgdelay)
+    plt.xlabel('Number of Server (k) and Q(k)')
+    plt.ylabel('Avg Q delay (sec)')
+
+    plt.subplot(313)
+    plt.plot(k_set, util)
+    plt.xlabel('Number of Server (k) and Q(k)')
+    plt.ylabel('Util')
+    plt.show()
 
 def main():
     max_sim_time = int(sys.argv[1])
     experiment1(max_sim_time)
     experiment2(max_sim_time)
     experiment3(max_sim_time)
+    experiment4(max_sim_time)
+    
 
 
 if __name__ == "__main__":
